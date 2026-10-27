@@ -1,88 +1,96 @@
 # Catálogo de Produtos — React + API REST
 
-SPA em React (Vite) que lista, pesquisa e consulta detalhes de produtos de uma API REST Node/Express (`Teste-De-API-Node`).
+Aplicação feita em React (Vite) que lista, pesquisa e mostra os detalhes de produtos vindos de uma API REST em Node/Express (`Teste-De-API-Node`).
 
 ## Como executar
 
-Pré-requisito: Node.js 18+ (testado com Node 22).
+**Pré-requisito:** Node.js 18 ou superior.
 
-**1. Subir a API** (pasta do projeto da API):
+**1. Subir a API** (em um terminal):
 
 ```bash
 cd Teste-De-API-Node-main
 npm install
-npm start          # http://localhost:3000
+npm start
 ```
 
-**2. Subir o front-end** (outro terminal):
+A API fica em `http://localhost:3000`.
+
+**2. Subir o front-end** (em outro terminal):
 
 ```bash
 cd catalogo-produtos
 npm install
-npm run dev        # http://localhost:5173
+npm run dev
 ```
 
-### Configuração da API
+O site abre em `http://localhost:5173`.
 
-- A API **não habilita CORS** e o back-end não foi alterado. Por isso o `vite.config.js` define um **proxy**: o navegador chama `http://localhost:5173/produtos` e o Vite repassa para `http://localhost:3000/produtos`.
-- `.env` → `VITE_API_URL=` (vazio = usa o proxy). Se a API estiver em outro endereço, use `API_TARGET=http://host:porta npm run dev`.
-- Se algum dia a API tiver CORS, basta `VITE_API_URL=http://localhost:3000`. Reinicie o `npm run dev` após mudar o `.env`.
+## Configuração da API
 
-### Contrato real da API (adaptações em relação ao exemplo do roteiro)
+- A API **não tem CORS habilitado** e não foi alterada. Por isso o `vite.config.js` usa um **proxy**: o navegador chama `http://localhost:5173/produtos` e o Vite repassa para `http://localhost:3000/produtos`.
+- No arquivo `.env`, `VITE_API_URL=` fica **vazio** para usar o proxy.
+- Se a API estiver em outro endereço, rode: `API_TARGET=http://host:porta npm run dev`
+- Depois de mudar o `.env`, reinicie o `npm run dev`.
 
-| Roteiro (exemplo) | API real |
-|---|---|
-| `nome` | **`descricao`** (nome do produto) |
-| `descricao` (texto longo) | não existe |
-| — | **`estoque`** (exibido nos detalhes) |
-| erro: `Erro HTTP 404` | corpo `{ "erro": "Produto não encontrado" }` (a mensagem é exibida) |
+## Dados da API
 
-`GET /produtos` → array · `GET /produtos/:id` → objeto · campos: `id, descricao, preco, categoria, estoque`.
+Endpoints usados:
+
+- `GET /produtos` → lista de produtos
+- `GET /produtos/:id` → um produto
+
+Campos de cada produto: `id`, `descricao` (nome do produto), `preco`, `categoria` e `estoque`.
 
 ## Árvore de componentes
 
 ```
-App                      (estados: products, search, loading, error,
-│                         selectedId, selectedProduct, detailsLoading, detailsError)
+App
 ├── Header
-├── ProductSearch        (props: value, onSearchChange)
-├── ProductList          (props: products, onViewDetails)
-│   └── ProductCard      (props: product, onViewDetails) — repetido para cada produto
-└── ProductDetails       (props: product, loading, error, onClose) — só se selectedId !== null
+├── ProductSearch      (props: value, onSearchChange)
+├── ProductList        (props: products, onViewDetails)
+│   └── ProductCard    (props: product, onViewDetails)
+└── ProductDetails     (props: product, loading, error, onClose)
+                       só aparece quando há um produto selecionado
 ```
+
+Estrutura de pastas:
 
 ```
 src/
 ├── main.jsx
 ├── App.jsx
 ├── App.css
-├── components/  Header, ProductSearch, ProductList, ProductCard, ProductDetails
-├── services/    productsApi.js      (fetch: getProducts, getProductById)
-└── data/        products.js         (dados locais da Parte 1; não usado após a Parte 2)
+├── components/   Header, ProductSearch, ProductList, ProductCard, ProductDetails
+├── services/     productsApi.js   (funções getProducts e getProductById)
+└── data/         products.js      (dados locais da Parte 1, não usado depois)
 ```
 
 ## Fluxo de dados
 
-`App` concentra o estado e é o único componente que conversa com a API. Ao montar, um `useEffect` chama `getProducts` e guarda o resultado em `products`, controlando `loading` e `error`. `ProductSearch` é um campo controlado: recebe `value` e, a cada digitação, chama `onSearchChange` (o `setSearch` de `App`). `App` calcula `filteredProducts` a partir de `products` e `search` (valor derivado, sem segundo estado) e o envia a `ProductList`, que usa `map` com `key={product.id}` para gerar um `ProductCard` por produto. Ao clicar em "Ver detalhes", `ProductCard` chama `onViewDetails(id)`, callback repassado por `ProductList` e que é o `setSelectedId` de `App`. A mudança de `selectedId` dispara outro `useEffect`, que chama `getProductById` (`GET /produtos/:id`) e preenche `selectedProduct`, `detailsLoading` e `detailsError`. Esses valores descem por props para `ProductDetails`. O botão "Fechar detalhes" chama `onClose` (`closeDetails`), que limpa o estado e remove o painel.
+O `App` guarda todos os estados e é o único componente que conversa com a API. Quando a página abre, um `useEffect` chama `getProducts` e salva a lista em `products`, controlando também `loading` e `error`. O `ProductSearch` é um campo controlado: a cada letra digitada ele chama `onSearchChange`, que atualiza o estado `search` no `App`. Com isso, o `App` calcula a lista filtrada e a envia para o `ProductList`, que usa `map` para criar um `ProductCard` para cada produto. Ao clicar em "Ver detalhes", o `ProductCard` chama `onViewDetails(id)`, que atualiza o `selectedId` no `App`. Essa mudança dispara outro `useEffect`, que busca o produto em `GET /produtos/:id` e preenche os estados usados pelo `ProductDetails`. Por fim, o botão "Fechar detalhes" chama `onClose`, que limpa o estado e remove o painel.
 
-**Props × useState × useEffect:** props levam dados e funções do pai para o filho (somente leitura); `useState` guarda informação que muda e provoca nova renderização; `useEffect` sincroniza o componente com algo externo (aqui, a API), com `AbortController` para cancelar requisições obsoletas.
+**Resumo:**
+- **props:** levam dados e funções do componente pai para o filho.
+- **useState:** guarda valores que mudam e fazem a tela atualizar.
+- **useEffect:** sincroniza o componente com algo externo, como a API.
 
-> Em desenvolvimento o `StrictMode` executa o efeito duas vezes, por isso `GET /produtos` aparece duplicado na aba Rede. Isso é esperado e não ocorre no build de produção.
+> Em desenvolvimento, o `StrictMode` executa o efeito duas vezes, então `GET /produtos` aparece duplicado na aba Rede. Isso é normal e não acontece no build de produção.
 
-## Evidências dos testes manuais (Etapa 9)
+## Testes manuais
 
-Executados contra a API real (`Teste-De-API-Node`) com Chromium automatizado (`evidencias/teste-e2e.py`; capturas em `evidencias/`).
+Testes feitos com a API real. As capturas de tela estão na pasta `evidencias/`.
 
 | # | Teste | Resultado | Evidência |
 |---|---|---|---|
-| 1 | Abre sem erros no console | ✅ 0 erros/avisos | — |
-| 2 | Produtos carregados da API | ✅ 5 cartões, `GET /produtos` | `01-lista-api.png` |
-| 3 | Busca por nome | ✅ "mouse" → 1 produto, contador atualizado | `02-busca-mouse.png` |
-| 4 | Mensagem de lista vazia | ✅ "xyz" → "Nenhum produto encontrado." | `03-lista-vazia.png` |
-| 5 | Falha na API exibe erro | ✅ servidor parado → mensagem em `role="alert"` (o proxy responde "Erro HTTP 502") | `06-api-fora-do-ar.png` |
-| 6 | "Ver detalhes" consulta por ID | ✅ `GET /produtos/3` | `04-detalhes.png` |
-| 7 | "Fechar detalhes" oculta o painel | ✅ | — |
-| 8 | Navegação sem recarregar | ✅ 0 navegações de página | — |
-| + | Erro 404 nos detalhes (produto excluído no servidor) | ✅ mostra "Produto não encontrado" | `05-erro-detalhes.png` |
+| 1 | Abrir sem erros no console | ✅ Nenhum erro | — |
+| 2 | Carregar produtos da API | ✅ 5 cartões exibidos | `01-lista-api.png` |
+| 3 | Buscar por nome ("mouse") | ✅ 1 produto encontrado | `02-busca-mouse.png` |
+| 4 | Busca sem resultado ("xyz") | ✅ "Nenhum produto encontrado." | `03-lista-vazia.png` |
+| 5 | API fora do ar | ✅ Mensagem de erro exibida | `06-api-fora-do-ar.png` |
+| 6 | Clicar em "Ver detalhes" | ✅ Chama `GET /produtos/3` | `04-detalhes.png` |
+| 7 | Clicar em "Fechar detalhes" | ✅ Painel some | — |
+| 8 | Navegar sem recarregar a página | ✅ Nenhum recarregamento | — |
+| 9 | Produto não encontrado (404) | ✅ "Produto não encontrado" | `05-erro-detalhes.png` |
 
-Verificações extras: `npm run build` e `npm run lint` sem erros.
+Também foram executados `npm run build` e `npm run lint`, sem erros.
